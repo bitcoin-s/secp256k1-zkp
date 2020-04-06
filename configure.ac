@@ -240,6 +240,11 @@ AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]), [],
     [SECP_SET_DEFAULT([enable_external_default_callbacks], [no], [no])])
 
+AC_ARG_ENABLE(jni,
+    AS_HELP_STRING([--enable-jni],[enable libsecp256k1_jni [default=no]]),
+    [use_jni=$enableval],
+    [use_jni=no])
+
 # Test-only override of the (autodetected by the C code) "widemul" setting.
 # Legal values are:
 #  * int64 (for [u]int64_t),
@@ -448,6 +453,30 @@ case $set_ecmult_gen_precision in
   ;;
 esac
 
+
+if test x"$use_jni" != x"no"; then
+  AX_JNI_INCLUDE_DIR
+  have_jni_dependencies=yes
+  if test x"$enable_module_ecdh" = x"no"; then
+    have_jni_dependencies=no
+  fi
+  if test "x$JNI_INCLUDE_DIRS" = "x"; then
+    have_jni_dependencies=no
+  fi
+  if test "x$have_jni_dependencies" = "xno"; then
+    if test x"$use_jni" = x"yes"; then
+      AC_MSG_ERROR([jni support explicitly requested but headers/dependencies were not found. Enable ECDH and try again.])
+    fi
+    AC_MSG_WARN([jni headers/dependencies not found. jni support disabled])
+    use_jni=no
+  else
+    use_jni=yes
+    for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS; do
+      JNI_INCLUDES="$JNI_INCLUDES -I$JNI_INCLUDE_DIR"
+    done
+  fi
+fi
+
 if test x"$enable_valgrind" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES $VALGRIND_CPPFLAGS -DVALGRIND"
 fi
@@ -598,6 +627,9 @@ fi
 ###
 
 AC_CONFIG_FILES([Makefile libsecp256k1.pc])
+
+AC_SUBST(JNI_INCLUDES)
+
 AC_SUBST(SECP_CFLAGS)
 AC_SUBST(SECP_CONFIG_DEFINES)
 AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
@@ -618,8 +650,12 @@ AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"
 AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
+
 AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG_HALFAGG], [test x"$enable_module_schnorrsig_halfagg" = x"yes"])
+
+AM_CONDITIONAL([USE_JNI], [test x"$use_jni" = x"yes"])
+
 AM_CONDITIONAL([USE_REDUCED_SURJECTION_PROOF_SIZE], [test x"$use_reduced_surjection_proof_size" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$enable_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm32"])
@@ -640,6 +676,9 @@ echo "  with external callbacks = $enable_external_default_callbacks"
 echo "  with benchmarks         = $enable_benchmark"
 echo "  with tests              = $enable_tests"
 echo "  with ctime tests        = $enable_ctime_tests"
+
+echo "  with jni                = $use_jni"
+
 echo "  with coverage           = $enable_coverage"
 echo "  with examples           = $enable_examples"
 echo "  module ecdh             = $enable_module_ecdh"

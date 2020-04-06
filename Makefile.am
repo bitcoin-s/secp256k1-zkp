@@ -3,8 +3,14 @@ ACLOCAL_AMFLAGS = -I build-aux/m4
 # AM_CFLAGS will be automatically prepended to CFLAGS by Automake when compiling some foo
 # which does not have an explicit foo_CFLAGS variable set.
 AM_CFLAGS = $(SECP_CFLAGS)
-
+noinst_LTLIBRARIES = $(PRECOMPUTED_LIB)
 lib_LTLIBRARIES = libsecp256k1.la
+if USE_JNI
+JNI_LIB = libsecp256k1_jni.la
+noinst_LTLIBRARIES += $(JNI_LIB)
+else
+JNI_LIB =
+endif
 include_HEADERS = include/secp256k1.h
 include_HEADERS += include/secp256k1_preallocated.h
 noinst_HEADERS =
@@ -48,6 +54,8 @@ noinst_HEADERS += src/precomputed_ecmult_gen.h
 noinst_HEADERS += src/assumptions.h
 noinst_HEADERS += src/checkmem.h
 noinst_HEADERS += src/testutil.h
+noinst_HEADERS += src/java/org_bitcoin_NativeSecp256k1.h
+noinst_HEADERS += src/java/org_bitcoin_Secp256k1Context.h
 noinst_HEADERS += src/util.h
 noinst_HEADERS += src/int128.h
 noinst_HEADERS += src/int128_impl.h
@@ -73,7 +81,7 @@ noinst_HEADERS += contrib/lax_der_privatekey_parsing.c
 noinst_HEADERS += examples/examples_util.h
 
 PRECOMPUTED_LIB = libsecp256k1_precomputed.la
-noinst_LTLIBRARIES = $(PRECOMPUTED_LIB)
+
 libsecp256k1_precomputed_la_SOURCES =  src/precomputed_ecmult.c src/precomputed_ecmult_gen.c
 # We need `-I$(top_srcdir)/src` in VPATH builds if libsecp256k1_precomputed_la_SOURCES have been recreated in the build tree.
 # This helps users and packagers who insist on recreating the precomputed files (e.g., Gentoo).
@@ -96,9 +104,13 @@ endif
 endif
 
 libsecp256k1_la_SOURCES = src/secp256k1.c
-libsecp256k1_la_CPPFLAGS = $(SECP_CONFIG_DEFINES)
-libsecp256k1_la_LIBADD = $(COMMON_LIB) $(PRECOMPUTED_LIB)
+
+libsecp256k1_la_CPPFLAGS = -DSECP256K1_BUILD -I$(top_srcdir)/include -I$(top_srcdir)/src $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
+libsecp256k1_la_LIBADD = $(JNI_LIB) $(COMMON_LIB) $(PRECOMPUTED_LIB)
 libsecp256k1_la_LDFLAGS = -no-undefined -version-info $(LIB_VERSION_CURRENT):$(LIB_VERSION_REVISION):$(LIB_VERSION_AGE)
+
+libsecp256k1_jni_la_SOURCES  = src/java/org_bitcoin_NativeSecp256k1.c src/java/org_bitcoin_Secp256k1Context.c
+libsecp256k1_jni_la_CPPFLAGS = -DSECP256K1_BUILD $(JNI_INCLUDES)
 
 noinst_PROGRAMS =
 if USE_BENCHMARK
@@ -272,6 +284,31 @@ endif
 if ENABLE_MODULE_BPPP
 include src/modules/bppp/Makefile.am.include
 endif
+
+JAVAROOT=src/java
+JAVAORG=org/bitcoin
+JAVA_FILES= \
+  $(JAVAROOT)/$(JAVAORG)/NativeSecp256k1.java \
+  $(JAVAROOT)/$(JAVAORG)/NativeSecp256k1Util.java \
+  $(JAVAROOT)/$(JAVAORG)/NativeSecp256k1Test.java \
+  $(JAVAROOT)/$(JAVAORG)/Secp256k1Context.java
+
+if USE_JNI
+
+.stamp-java: $(JAVA_FILES)
+	@echo   Compiling $^
+	$(AM_V_at) javac $^
+	@touch $@
+
+if USE_TESTS
+
+check-java: libsecp256k1.la .stamp-java
+	$(AM_V_at)java -Djava.library.path="./:./src:./src/.libs:.libs/" -cp "$(JAVAROOT)" $(JAVAORG)/NativeSecp256k1Test
+
+endif
+endif
+
+EXTRA_DIST += autogen.sh $(JAVA_FILES)
 
 if ENABLE_MODULE_ECDH
 include src/modules/ecdh/Makefile.am.include
