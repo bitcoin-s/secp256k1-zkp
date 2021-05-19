@@ -72,8 +72,9 @@ case "$host_os" in
                 _JTOPDIR="$(xcrun --show-sdk-path)/System/Library/Frameworks/JavaVM.framework"
                 _JINC="$_JTOPDIR/Headers"
             else
-                _JTOPDIR="/System/Library/Frameworks/JavaVM.framework"
-                _JINC="$_JTOPDIR/Headers"
+		#/Users/chris/.jenv/versions/11.0.11
+                _JTOPDIR="/Users/chris/.jenv/versions/11.0.11"
+                _JINC="$_JTOPDIR/include"
             fi
             ;;
         *) _JINC="$_JTOPDIR/include";;
