@@ -532,7 +532,7 @@ SECP256K1_API jobjectArray JNICALL Java_org_bitcoin_NativeSecp256k1_secp256k1_1s
   int ret = secp256k1_keypair_create(ctx, &keypair, seckey);
 
   if (ret) {
-    ret = secp256k1_schnorrsig_sign(ctx, &sig, msg32, &keypair, NULL, rand32);
+    ret = secp256k1_schnorrsig_sign(ctx, sig, msg32, &keypair, rand32);
   }
 
   intsarray[0] = ret;
@@ -554,7 +554,7 @@ SECP256K1_API jobjectArray JNICALL Java_org_bitcoin_NativeSecp256k1_secp256k1_1s
   return retArray;
 }
 
-int constant_nonce_function(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *xonly_pk32, const unsigned char *algo16, void *data) {
+int constant_nonce_function(unsigned char *nonce32, const unsigned char *msg32, size_t msglen, const unsigned char *key32, const unsigned char *xonly_pk32, const unsigned char *algo16, size_t algolen, void *data) {
   memcpy(nonce32, (const unsigned char*)data, 32);
   return 1;
 }
@@ -574,11 +574,12 @@ SECP256K1_API jobjectArray JNICALL Java_org_bitcoin_NativeSecp256k1_secp256k1_1s
   unsigned char intsarray[1];
   secp256k1_keypair keypair;
   unsigned char sig[64];
+  secp256k1_schnorrsig_extraparams extraparams = {SECP256K1_SCHNORRSIG_EXTRAPARAMS_MAGIC, constant_nonce, nonce};
 
   int ret = secp256k1_keypair_create(ctx, &keypair, seckey);
 
   if (ret) {
-    ret = secp256k1_schnorrsig_sign(ctx, &sig, msg32, &keypair, constant_nonce, nonce);
+    ret = secp256k1_schnorrsig_sign_custom(ctx, sig, msg32, 32, &keypair, &extraparams);
   }
 
   intsarray[0] = ret;
@@ -664,7 +665,7 @@ SECP256K1_API jint JNICALL Java_org_bitcoin_NativeSecp256k1_secp256k1_1schnorrsi
   int ret = secp256k1_xonly_pubkey_parse(ctx, &pubx, pubx32);
 
   if (ret) {
-    ret = secp256k1_schnorrsig_verify(ctx, sig64, msg32, &pubx);
+    ret = secp256k1_schnorrsig_verify(ctx, sig64, msg32, 32, &pubx);
   }
 
   (void)classObject;
