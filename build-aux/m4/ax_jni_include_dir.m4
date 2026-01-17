@@ -67,13 +67,18 @@ fi
 
 case "$host_os" in
         darwin*)        # Apple Java headers are inside the Xcode bundle.
-            macos_version=$(sw_vers -productVersion | sed -n -e 's/^@<:@0-9@:>@*.\(@<:@0-9@:>@*\).@<:@0-9@:>@*/\1/p')
-            if @<:@ "$macos_version" -gt "7" @:>@; then
-                _JTOPDIR="$(xcrun --show-sdk-path)/System/Library/Frameworks/JavaVM.framework"
-                _JINC="$_JTOPDIR/Headers"
+            # Only use JavaVM.framework if JAVA_HOME was not set
+            if test "x$JAVA_HOME" = x; then
+                macos_version=$(sw_vers -productVersion | sed -n -e 's/^@<:@0-9@:>@*.\(@<:@0-9@:>@*\).@<:@0-9@:>@*/\1/p')
+                if @<:@ "$macos_version" -gt "7" @:>@; then
+                    _JTOPDIR="$(xcrun --show-sdk-path)/System/Library/Frameworks/JavaVM.framework"
+                    _JINC="$_JTOPDIR/Headers"
+                else
+                    _JTOPDIR="/System/Library/Frameworks/JavaVM.framework"
+                    _JINC="$_JTOPDIR/Headers"
+                fi
             else
-                _JTOPDIR="/System/Library/Frameworks/JavaVM.framework"
-                _JINC="$_JTOPDIR/Headers"
+                _JINC="$_JTOPDIR/include"
             fi
             ;;
         *) _JINC="$_JTOPDIR/include";;
